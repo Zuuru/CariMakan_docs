@@ -111,22 +111,33 @@ Login ke Web Admin Panel
 ## Alur 6 — Admin: Kelola Platform
 
 ```
-Login ke Web Admin Panel
-  → Dashboard Statistik
-      - Total transaksi hari ini
-      - Jumlah user aktif
-      - Restoran dengan pesanan terbanyak
-  → Manajemen User
-      - Suspend / aktifkan akun user
-      - Hapus akun yang melanggar aturan
-  → Moderasi Ulasan
-      - Sembunyikan review yang tidak sesuai
-  → Kelola Promo & Voucher
-      - Buat kode promo baru
-      - Atur nilai diskon & masa berlaku
-  → Kelola Badge Database
-      - Atur syarat & konfigurasi badge achievement
+Login ke Web Admin Panel (http://localhost:3000)
+  → Validasi: email + password dicek via server action ke Firestore
+  → Hanya role 'admin' + status 'aktif' yang bisa masuk
+  → Dashboard Utama
+      - Card: Total Restoran, Total Customer, Total User, Total Profit (7% fee)
+      - Profit Chart: tren profit harian dengan filter 1h/7h/30h/3b/1th
+      - Tabel profit per restoran (dari aggregasi orders.app_profit)
+  → Tab Manajemen User
+      - Lihat semua user (customer, owner, admin)
+      - CRUD: tambah, edit semua field (nama, email, role, status, WA, foto_url, poin_reward, fcm_token), hapus
+  → Tab Restoran
+      - Lihat semua restoran dengan status (pending/aktif/suspend)
+      - Approve / Reject restoran pending
+      - Suspend / Aktifkan restoran
+      - Klik "Detail" → buka halaman analitik per-restoran:
+          - KPI: total profit, total revenue, total order, rating
+          - Tren profit harian (chart 30 hari)
+          - Info owner
+          - Top review tags
+          - Showcase menu (filter tersedia/habis)
+          - 10 transaksi terbaru
+  → Tab Promo & Voucher
+      - Buat/edit/nonaktifkan promo global atau per-restoran
+  → Tab Statistik Platform
+      - Lihat metrik platform secara keseluruhan
 ```
+
 
 ---
 
@@ -181,11 +192,14 @@ Customer klik bayar di app
     │
     │ Customer ambil pesanan / pesanan diserahkan
     ▼
-[done]
+[completed]   ← Digunakan sebagai filter analitik di admin dashboard
 
 Dari state manapun:
 [cancelled] ← Pembayaran gagal / timeout / owner tolak
 ```
+
+> **Admin Dashboard Filter:** Semua kalkulasi profit (`app_profit`) hanya mengambil orders dengan `status == 'completed'`.
+
 
 ---
 

@@ -1,21 +1,20 @@
-# CariMakan — Database
+﻿# CariMakan â€” Database
 
 ## Database yang Digunakan
 
-**Primary:** Firestore (Firebase — NoSQL, real-time)  
-**Alternative/Relational:** PostgreSQL (opsi untuk query relasional kompleks)  
+**Primary:** Firestore (Firebase â€” NoSQL, real-time)  
 **Media Storage:** Firebase Storage (foto menu, foto restoran, QR Code)
 
-> Skema koleksi di bawah ini dibuat berdasarkan **ERD revisi** per 19 Mei 2026.
+> Skema koleksi di bawah ini dibuat berdasarkan **ERD implementasi aktual** per 19 Mei 2026, sesuai dengan seeder `setupdb/firestore-setup.js` dan server actions di `carimakan_admin`.
 
 ---
 
 ## Alasan Memilih Firestore
 
-- **Real-time listener** — cocok untuk fitur antrian dan status pesanan yang harus update otomatis
-- **Scalable** — mendukung concurrent users tanpa konfigurasi server manual
-- **Integrasi** — native dengan Firebase ecosystem (FCM, Auth, Storage)
-- **Managed** — tidak perlu maintain server database sendiri
+- **Real-time listener** â€” cocok untuk fitur antrian dan status pesanan yang harus update otomatis
+- **Scalable** â€” mendukung concurrent users tanpa konfigurasi server manual
+- **Integrasi** â€” native dengan Firebase ecosystem (FCM, Auth, Storage)
+- **Managed** â€” tidak perlu maintain server database sendiri
 
 ---
 
@@ -24,21 +23,21 @@
 | Koleksi | Keterangan |
 |---|---|
 | `users` | Semua pengguna (customer, owner, admin) |
-| `restaurants` | Data restoran |
+| `restaurants` | Data restoran mitra |
 | `menus` | Menu per restoran |
 | `meja` | QR Code meja per restoran (dine in) |
-| `orders` | Pesanan customer (termasuk rating & antrian) |
+| `orders` | Pesanan customer â€” termasuk platform fee (`app_profit`) |
 | `order_items` | Item detail dari setiap pesanan |
 | `payments` | Transaksi pembayaran via Midtrans |
 | `badges` | Master data badge fasilitas |
-| `resto_badges` | Junction: restoran ↔ badge |
+| `resto_badges` | Junction: restoran â†” badge |
 | `tag_kategori` | Master kategori tag ulasan |
 | `review_tags` | Tag ulasan per kategori |
-| `order_review_tags` | Junction: order ↔ tag ulasan |
+| `order_review_tags` | Junction: order â†” tag ulasan yang dipilih |
 | `promo_vouchers` | Promo & voucher diskon |
 | `reward_poin` | Histori poin reward customer |
 
-> Perubahan dari ERD sebelumnya: koleksi `review_tags` kini memiliki induk `tag_kategori` — kategori ulasan dipisahkan ke koleksinya sendiri untuk fleksibilitas penambahan kategori baru.
+> **Catatan implementasi:** `order_review_tags` kini di-seed bersama orders (Â±70% order mendapat 1â€“3 review tags acak). Koleksi `order_items`, `payments`, dan `reward_poin` diisi oleh transaksi nyata dari aplikasi, bukan seeder.
 
 ---
 
@@ -50,16 +49,19 @@
 
 | Field | Tipe | Keterangan |
 |---|---|---|
-| `id` | string | PK — UID dari Firebase Auth |
+| `id` | string | PK â€” di-set manual saat seeding (mis: `admin_001`) |
 | `nama` | string | Nama lengkap |
 | `email` | string | Email login |
+| `password` | string | Password teks (saat ini plain-text, divalidasi di server action) |
 | `role` | enum | `customer` / `owner` / `admin` |
-| `foto_url` | string | URL foto profil (Firebase Storage) |
-| `poin_reward` | int | Total poin aktif yang dimiliki |
-| `fcm_token` | string | Token FCM untuk push notification |
+| `foto_url` | string | URL foto profil (Firebase Storage) â€” nullable |
+| `poin_reward` | int | Total poin aktif yang dimiliki (hanya relevan untuk `customer`) |
+| `fcm_token` | string | Token FCM untuk push notification â€” nullable |
 | `status` | enum | `aktif` / `suspend` |
-| `url_whatsapp` | string | Nomor WhatsApp (opsional) |
+| `url_whatsapp` | string | Nomor WhatsApp â€” nullable |
 | `created_at` | timestamp | Waktu registrasi |
+
+> **Keamanan:** Login admin divalidasi di server action (`verifyAdminLogin`) â€” hanya `role: admin` dan `status: aktif` yang bisa akses dashboard admin. Password sebaiknya di-hash (bcrypt) sebelum production.
 
 ---
 
@@ -68,15 +70,15 @@
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `owner_id` | string | FK → `users.id` |
+| `owner_id` | string | FK â†’ `users.id` |
 | `nama` | string | Nama restoran |
-| `lokasi` | geopoint | Koordinat GPS (lat, lng) |
-| `foto_uri` | string | URL foto utama restoran |
-| `jam_buka` | string | Jam operasional (misal: `"08:00-22:00"`) |
+| `lokasi` | GeoPoint | Koordinat GPS (lat, lng) â€” Firestore GeoPoint |
+| `foto_uri` | string | URL foto utama restoran â€” nullable |
+| `jam_buka` | string | Jam operasional (mis: `"08:00-22:00"`) |
 | `status` | enum | `pending` / `aktif` / `suspend` |
 | `url_whatsapp` | string | Kontak WhatsApp restoran |
-| `avg_rating` | float | Rata-rata rating — **denormalized cache** |
-| `total_review` | int | Jumlah total review — **denormalized cache** |
+| `avg_rating` | float | Rata-rata rating â€” **denormalized cache** |
+| `total_review` | int | Jumlah total review â€” **denormalized cache** |
 | `created_at` | timestamp | Tanggal daftar |
 
 > `avg_rating` dan `total_review` di-update otomatis setiap ada review baru agar tidak perlu agregasi tiap query.
@@ -88,12 +90,14 @@
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `resto_id` | string | FK → `restaurants.id` |
+| `resto_id` | string | FK â†’ `restaurants.id` |
 | `nama` | string | Nama menu |
-| `harga` | int | Harga dalam Rupiah |
-| `foto_url` | string | Foto menu |
+| `harga` | int | Harga **asli** dalam Rupiah (sebelum platform fee 7%) |
+| `foto_url` | string | Foto menu â€” nullable |
 | `deskripsi` | string | Deskripsi menu |
 | `tersedia` | bool | Status ketersediaan menu |
+
+> **Harga di frontend:** Harga yang ditampilkan ke customer adalah `harga + (harga Ã— 7%)`. Platform fee 7% masuk sebagai `app_profit` di setiap `orders`.
 
 ---
 
@@ -104,39 +108,29 @@ Data meja per restoran untuk keperluan Dine In.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `resto_id` | string | FK → `restaurants.id` |
+| `resto_id` | string | FK â†’ `restaurants.id` |
 | `nomor_meja` | int | Nomor meja |
-| `qr_code_url` | string | URL QR Code statis meja (cetak 1x, permanen) |
+| `qr_code_url` | string | URL QR Code statis meja (cetak 1x, permanen) â€” nullable |
 
 ---
 
 ### 5. `orders`
 
-Pesanan utama — mencakup status antrian, payment, dan rating dalam satu dokumen.
+Pesanan utama â€” mencakup status, platform fee, dan tipe pemesanan.
 
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `user_id` | string | FK → `users.id` |
-| `resto_id` | string | FK → `restaurants.id` |
-| `meja_id` | string | FK → `meja.id` — **null jika take away** |
-| `promo_id` | string | FK → `promo_vouchers.id` — **null jika tidak pakai promo** |
-| `tipe` | enum | `dinein` / `takeaway` |
-| `total` | int | Total harga pesanan (Rupiah) |
-| `nomor_antrian` | int | Nomor antrian yang di-generate sistem |
-| `status` | enum | `pending` / `proses` / `siap` / `selesai` |
-| `status_antrian` | enum | `menunggu` / `dipanggil` / `proses` / `selesai` |
-| `payment_status` | enum | `unpaid` / `paid` / `failed` |
-| `payment_token` | string | Token Midtrans untuk redirect ke halaman bayar |
-| `qr_pickup` | string | QR Code dinamis untuk take away — **null jika dine in** |
-| `jam_pickup` | timestamp | Waktu pickup yang dipilih — **null jika dine in** |
-| `rating_pelayanan` | int | Rating pelayanan 1–5 — **null until reviewed** |
-| `rating_makanan` | int | Rating makanan 1–5 — **null until reviewed** |
-| `rating_fasilitas` | int | Rating fasilitas 1–5 — **null until reviewed** |
-| `rating_total` | float | Rata-rata dari 3 rating — **null until reviewed** |
-| `komentar` | string | Komentar ulasan — **null until reviewed** |
-| `sudah_direview` | bool | Flag apakah order ini sudah diberi review |
+| `user_id` | string | FK â†’ `users.id` |
+| `resto_id` | string | FK â†’ `restaurants.id` |
+| `tipe_pesanan` | enum | `dine_in` / `take_away` |
+| `status` | enum | `pending` / `processing` / `ready` / `completed` / `cancelled` |
+| `total_price` | int | Total bayar customer = harga asli + 7% platform fee |
+| `app_profit` | int | **Platform fee 7%** â€” digunakan untuk kalkulasi profit di admin dashboard |
 | `created_at` | timestamp | Waktu pesanan dibuat |
+
+> **Platform Fee:** `app_profit = floor(harga_asli Ã— 0.07)`. Field ini menjadi sumber data utama untuk kalkulasi profit di admin dashboard (chart, per-resto, global).  
+> Status `completed` digunakan sebagai filter di semua query analitik dashboard.
 
 ---
 
@@ -147,13 +141,13 @@ Detail item di dalam setiap pesanan.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `order_id` | string | FK → `orders.id` |
-| `menu_id` | string | FK → `menus.id` |
+| `order_id` | string | FK â†’ `orders.id` |
+| `menu_id` | string | FK â†’ `menus.id` |
 | `qty` | int | Jumlah yang dipesan |
-| `harga_saat_order` | int | Snapshot harga saat transaksi |
-| `catatan` | string | Catatan khusus (misal: "tanpa sambal") |
+| `harga_saat_order` | int | Snapshot harga asli saat transaksi |
+| `catatan` | string | Catatan khusus (mis: "tanpa sambal") |
 
-> `harga_saat_order` adalah snapshot — perubahan harga menu di masa depan tidak merusak histori transaksi.
+> `harga_saat_order` adalah snapshot â€” perubahan harga menu di masa depan tidak merusak histori transaksi.
 
 ---
 
@@ -162,10 +156,10 @@ Detail item di dalam setiap pesanan.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `order_id` | string | FK → `orders.id` |
+| `order_id` | string | FK â†’ `orders.id` |
 | `gateway_token` | string | Token/ID transaksi dari Midtrans |
 | `method` | string | `gopay` / `ovo` / `qris` / `bank` / dll. |
-| `amount` | int | Nominal pembayaran (Rupiah) |
+| `amount` | int | Nominal pembayaran (Rupiah) â€” sama dengan `orders.total_price` |
 | `status` | enum | `pending` / `success` / `failed` |
 | `paid_at` | timestamp | Waktu pembayaran berhasil dikonfirmasi |
 
@@ -178,8 +172,10 @@ Master data badge/fasilitas restoran.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `nama` | string | Nama badge (misal: "WiFi", "AC", "Area Parkir") |
-| `icon` | string | URL atau nama icon |
+| `nama` | string | Nama badge (mis: "WiFi", "AC", "Area Parkir") |
+| `icon` | string | Nama icon (mis: `wifi`, `ac`, `parking`) |
+
+**Data seed saat ini:** `wifi`, `ac`, `parking`, `toilet`, `child_friendly`, `no_smoking`
 
 ---
 
@@ -189,22 +185,21 @@ Junction table antara restoran dan badge yang dimilikinya.
 
 | Field | Tipe | Keterangan |
 |---|---|---|
-| `resto_id` | string | FK → `restaurants.id` |
-| `badge_id` | string | FK → `badges.id` |
+| `id` | string | PK (mis: `rb_001`) |
+| `resto_id` | string | FK â†’ `restaurants.id` |
+| `badge_id` | string | FK â†’ `badges.id` |
 
 ---
 
 ### 10. `tag_kategori`
 
-Master kategori untuk mengelompokkan tag ulasan. *(Koleksi baru — hasil pemisahan dari `review_tags` sebelumnya)*
+Master kategori untuk mengelompokkan tag ulasan.
 
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `nama` | string | Nama kategori (misal: "pelayanan", "makanan", "fasilitas", "suasana", dll.) |
+| `nama` | string | Nama kategori (`pelayanan`, `makanan`, `fasilitas`, `suasana`) |
 | `icon` | string | Icon kategori |
-
-> Pemisahan ini memungkinkan penambahan kategori ulasan baru (misal: "suasana", "kebersihan") tanpa mengubah struktur `review_tags`.
 
 ---
 
@@ -215,11 +210,25 @@ Tag label spesifik untuk ulasan, dikelompokkan berdasarkan `tag_kategori`.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `kategori_id` | string | FK → `tag_kategori.id` |
-| `label` | string | Label tag (misal: "WiFi cepat", "Makanan enak") |
+| `kategori_id` | string | FK â†’ `tag_kategori.id` |
+| `label` | string | Label tag (mis: "WiFi cepat", "Makanan enak") |
 | `icon` | string | Icon tag |
 
-> **Perubahan dari ERD sebelumnya:** field `kategori` yang tadinya `enum` langsung di `review_tags` kini dipisah menjadi FK ke koleksi `tag_kategori`. Ini membuat kategori lebih dinamis dan bisa dikelola Admin tanpa deploy ulang.
+**Tag yang tersedia (11 tag):**
+
+| Tag | Kategori |
+|---|---|
+| Pelayanan ramah | Pelayanan |
+| Antrian cepat | Pelayanan |
+| Pesanan tepat waktu | Pelayanan |
+| Makanan enak | Makanan |
+| Porsi besar | Makanan |
+| Harga terjangkau | Makanan |
+| WiFi cepat | Fasilitas |
+| Tempat bersih | Fasilitas |
+| AC sejuk | Fasilitas |
+| Suasana nyaman | Suasana |
+| Cocok untuk nongkrong | Suasana |
 
 ---
 
@@ -229,8 +238,11 @@ Junction table antara order dan tag ulasan yang dipilih customer.
 
 | Field | Tipe | Keterangan |
 |---|---|---|
-| `order_id` | string | FK → `orders.id` |
-| `tag_id` | string | FK → `review_tags.id` |
+| `id` | string | PK (format: `{order_id}_tag_{index}`) |
+| `order_id` | string | FK â†’ `orders.id` |
+| `tag_id` | string | FK â†’ `review_tags.id` |
+
+> Digunakan di admin dashboard `RestoDetailPage` untuk menampilkan **Top Review Tags** per restoran. Query menggunakan `where('order_id', 'in', [...])` dengan chunking 30 dokumen (batas Firestore `in` query).
 
 ---
 
@@ -239,9 +251,9 @@ Junction table antara order dan tag ulasan yang dipilih customer.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `created_by` | string | FK → `users.id` — Admin atau Owner pembuat |
-| `resto_id` | string | FK → `restaurants.id` — **null jika promo global (Admin)** |
-| `user_id` | string | FK → `users.id` — **null jika publik; isi jika voucher spesifik user** |
+| `created_by` | string | FK â†’ `users.id` â€” Admin atau Owner pembuat |
+| `resto_id` | string | FK â†’ `restaurants.id` â€” **null jika promo global (Admin)** |
+| `user_id` | string | FK â†’ `users.id` â€” **null jika publik; isi jika voucher spesifik user** |
 | `kode` | string | Kode promo unik |
 | `nama` | string | Nama promo |
 | `deskripsi` | string | Deskripsi promo |
@@ -250,15 +262,15 @@ Junction table antara order dan tag ulasan yang dipilih customer.
 | `mulai` | timestamp | Tanggal mulai berlaku |
 | `berakhir` | timestamp | Tanggal kadaluarsa |
 | `is_active` | bool | Status aktif promo |
-| `is_used` | bool | Status sudah digunakan — **hanya berlaku jika `user_id` tidak null** |
+| `is_used` | bool | Status sudah digunakan â€” **hanya berlaku jika `user_id` tidak null** |
 
 **Aturan scope promo:**
 
 | `resto_id` | `user_id` | Scope |
 |---|---|---|
-| null | null | Promo global — dibuat Admin, berlaku semua restoran |
-| isi | null | Promo restoran — dibuat Owner, khusus restorannya |
-| isi / null | isi | Voucher personal — sekali pakai untuk 1 user spesifik |
+| null | null | Promo global â€” dibuat Admin, berlaku semua restoran |
+| isi | null | Promo restoran â€” dibuat Owner, khusus restorannya |
+| isi / null | isi | Voucher personal â€” sekali pakai untuk 1 user spesifik |
 
 ---
 
@@ -269,8 +281,8 @@ Histori transaksi poin reward customer.
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `user_id` | string | FK → `users.id` |
-| `order_id` | string | FK → `orders.id` |
+| `user_id` | string | FK â†’ `users.id` |
+| `order_id` | string | FK â†’ `orders.id` |
 | `jumlah_poin` | int | Jumlah poin (positif = earn, negatif = redeem) |
 | `created_at` | timestamp | Waktu transaksi poin |
 
@@ -281,20 +293,39 @@ Histori transaksi poin reward customer.
 ## Relasi Antar Koleksi
 
 ```
-users ──(owner_id)──────────► restaurants ──(resto_id)──► menus
-  │                                │
-  │                                ├──(resto_id)──► meja
-  │                                └──(resto_id)──► resto_badges ◄── badges
-  │
-  └──(user_id)──► orders
-                    │
-                    ├──(meja_id)──────────► meja
-                    ├──(promo_id)─────────► promo_vouchers
-                    ├──► order_items ──(menu_id)──► menus
-                    ├──► payments
-                    ├──► order_review_tags ◄── review_tags ◄──(kategori_id)── tag_kategori
-                    └──► reward_poin
+users â”€â”€(owner_id)â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º restaurants â”€â”€(resto_id)â”€â”€â–º menus
+  â”‚                                â”‚
+  â”‚                                â”œâ”€â”€(resto_id)â”€â”€â–º meja
+  â”‚                                â””â”€â”€(resto_id)â”€â”€â–º resto_badges â—„â”€â”€ badges
+  â”‚
+  â””â”€â”€(user_id)â”€â”€â–º orders â”€â”€(app_profit)â”€â”€â–º [Admin Dashboard Profit Calc]
+                    â”‚
+                    â”œâ”€â”€(tipe_pesanan: dine_in) â”€â”€â–º meja
+                    â”œâ”€â”€(promo_id)â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º promo_vouchers
+                    â”œâ”€â”€â–º order_items â”€â”€(menu_id)â”€â”€â–º menus
+                    â”œâ”€â”€â–º payments
+                    â”œâ”€â”€â–º order_review_tags â—„â”€â”€ review_tags â—„â”€â”€(kategori_id)â”€â”€ tag_kategori
+                    â””â”€â”€â–º reward_poin
 ```
+
+---
+
+## Logika Platform Fee (7%)
+
+```
+Harga asli menu:        Rp 100.000
+Platform fee (7%):      Rp   7.000
+Total bayar customer:   Rp 107.000
+
+Disimpan di orders:
+  total_price = 107.000
+  app_profit  =   7.000   â† Profit aplikasi CariMakan
+```
+
+**Kalkulasi di Admin Dashboard:**
+- **Total Profit Global** â†’ `SUM(app_profit)` dari semua `orders` where `status == 'completed'`
+- **Profit per Resto** â†’ `SUM(app_profit)` GROUP BY `resto_id`
+- **Chart harian** â†’ `app_profit` dibucketkan per rentang waktu (`1h`, `7h`, `30h`, `3b`, `1th`)
 
 ---
 
@@ -302,12 +333,21 @@ users ──(owner_id)──────────► restaurants ──(resto
 
 | Keputusan | Penjelasan |
 |---|---|
-| **`tag_kategori` dipisah dari `review_tags`** | Kategori ulasan kini koleksi mandiri — Admin bisa tambah/ubah kategori (misal: "suasana", "kebersihan") tanpa ubah skema `review_tags` |
-| **Rating disimpan di `orders`** | Tidak ada koleksi `reviews` terpisah — rating pelayanan/makanan/fasilitas dan komentar langsung di dokumen order untuk menyederhanakan query |
+| **`app_profit` di `orders`** | Menyimpan 7% platform fee langsung di dokumen order agar admin bisa kalkulasi profit tanpa re-compute dari `order_items` |
+| **`password` di `users`** | Login admin divalidasi server-side (`verifyAdminLogin`). Password plain-text saat ini untuk development â€” **wajib di-hash sebelum production** |
+| **`tipe_pesanan` di `orders`** | Enum `dine_in` / `take_away` menggantikan field `tipe` lama untuk konsistensi naming |
+| **`status: completed` sebagai filter** | Semua kalkulasi profit dan analitik hanya mengambil order dengan `status == 'completed'` |
+| **`id` di `resto_badges` & `order_review_tags`** | Ditambahkan untuk keperluan batch seeding dan operasi delete yang lebih mudah |
 | **`avg_rating` & `total_review` di Resto** | Denormalized cache agar tidak perlu agregasi setiap tampilkan daftar restoran |
-| **`harga_saat_order` di `order_items`** | Snapshot harga saat transaksi — perubahan harga menu di masa depan tidak merusak histori |
-| **`payment_token` di `orders`** | Token Midtrans di-cache di order untuk redirect bayar tanpa query ke koleksi payments |
-| **`qr_pickup` di `orders`** | QR dinamis untuk take away — berbeda dari `qr_code_url` di meja yang statis dan permanen |
-| **`sudah_direview` di `orders`** | Flag boolean untuk mencegah customer review lebih dari sekali per transaksi |
+| **`harga_saat_order` di `order_items`** | Snapshot harga saat transaksi â€” perubahan harga menu di masa depan tidak merusak histori |
+| **`fcm_token` di `users`** | Disimpan agar backend bisa kirim push notification langsung ke device spesifik |
 | **`is_used` di `promo_vouchers`** | Hanya relevan jika `user_id` tidak null (voucher personal sekali pakai) |
-| **`fcm_token` di `users`** | Disimpan agar backend bisa kirim push notification langsung ke device spesifik tanpa roundtrip ke FCM registry |
+
+
+## Database yang Digunakan
+
+**Primary:** Firestore (Firebase â€” NoSQL, real-time)  
+**Alternative/Relational:** PostgreSQL (opsi untuk query relasional kompleks)  
+**Media Storage:** Firebase Storage (foto menu, foto restoran, QR Code)
+
+> Skema koleksi di bawah ini dibuat berdasarkan **ERD revisi** per 19 Mei 2026.

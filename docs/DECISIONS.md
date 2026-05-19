@@ -170,3 +170,49 @@ Dokumen ini mencatat keputusan-keputusan teknis utama yang diambil dalam pengemb
 | **Identifikasi** | Nomor meja dari scan QR | Waktu pickup yang dipilih customer |
 | **Antrian** | Antrian dine in terpisah di dashboard owner | Antrian take away terpisah di dashboard owner |
 | **Alur** | Scan QR meja → Pilih menu → Bayar → Tunggu | Pilih menu → Pilih waktu pickup → Bayar → Ambil |
+
+---
+
+## ADR-011 — Next.js Server Actions untuk Admin (Tanpa Backend Terpisah)
+
+**Status:** Accepted  
+**Konteks:** Admin dashboard perlu akses database yang aman tanpa mengekspos kredensial ke client.
+
+**Keputusan:** Gunakan Next.js **Server Actions** + Firebase **Admin SDK** langsung di `carimakan_admin`, tanpa backend Node.js/Express terpisah untuk admin.
+
+**Alasan:**
+- Server Actions berjalan di server (tidak pernah terekspos ke browser) — aman untuk menyimpan service account key
+- Menghilangkan satu layer infra (tidak perlu maintain backend Express terpisah untuk admin)
+- Cocok untuk admin-only operations yang tidak membutuhkan real-time listener
+- Deployment lebih sederhana (Next.js + Vercel/GCP Cloud Run)
+
+**Trade-off:**
+- Tidak bisa digunakan untuk real-time Firestore listeners (butuh solusi lain jika diperlukan)
+- Semua query dijalankan synchronous saat request — bukan streaming
+
+---
+
+## ADR-012 — Platform Fee 7% via Field `app_profit` di `orders`
+
+**Status:** Accepted  
+**Konteks:** CariMakan perlu model monetisasi dari setiap transaksi yang bisa ditrack dan diaudit.
+
+**Keputusan:** Platform mengambil **7% dari harga asli** setiap transaksi sebagai platform fee. Nilai ini disimpan langsung di field `app_profit` pada koleksi `orders` saat transaksi dibuat.
+
+**Alasan:**
+- Pre-computed — tidak perlu agregasi real-time yang mahal
+- Mudah di-query di admin dashboard: `SUM(app_profit) WHERE status = 'completed'`
+- Audit trail yang jelas — setiap order punya catatan berapa yang masuk ke platform
+- Scalable untuk penambahan tier fee berbeda di masa depan (misal: fee berbeda per kategori resto)
+
+**Implementasi:**
+```
+harga_asli = harga menu asli (Rupiah)
+app_profit = floor(harga_asli × 0.07)
+total_price = harga_asli + app_profit   ← yang dibayar customer
+```
+
+**Tampilan di Admin Dashboard:**
+- Card Profit: akumulasi `SUM(app_profit)` semua orders `completed`
+- Chart Harian: bucketing `app_profit` per rentang waktu (1h, 7h, 30h, 3b, 1th)
+- Detail Resto: `SUM(app_profit)` GROUP BY `resto_id`

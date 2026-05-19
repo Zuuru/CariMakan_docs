@@ -10,16 +10,18 @@ CariMakan menggunakan arsitektur **client-server berbasis cloud** dengan pendeka
 
 | Layer | Teknologi |
 |---|---|
-| **Frontend Mobile** | Flutter (Expo Framework) — Android & iOS |
-| **Frontend Web Admin** | Next.js + TypeScript |
-| **Backend** | Node.js + Express.js |
-| **API Style** | RESTful API / GraphQL |
-| **Database** | Firestore (Firebase) / PostgreSQL |
+| **Frontend Mobile** | Flutter — Android & iOS (Customer & Owner) |
+| **Frontend Web Admin** | Next.js + TypeScript (Admin Dashboard) |
+| **Admin Auth** | Server Actions (Next.js) + Firebase Admin SDK |
+| **Database** | Firestore (Firebase NoSQL) |
 | **Cloud** | Google Cloud Platform + Firebase Storage |
 | **Payment** | Midtrans Payment Gateway |
-| **Auth** | JWT Authentication |
-| **Push Notification** | OneSignal / Firebase Cloud Messaging (FCM) |
+| **Auth** | Validasi server-side via `verifyAdminLogin` (admin), JWT untuk mobile |
+| **Push Notification** | Firebase Cloud Messaging (FCM) |
 | **Maps** | Google Maps API |
+
+> **Catatan Implementasi:** Admin dashboard (`carimakan_admin`) tidak menggunakan backend Node.js terpisah — semua operasi database dilakukan langsung dari Next.js **Server Actions** menggunakan **Firebase Admin SDK**. Repository Customer dan Owner terpisah dari admin.
+
 
 ---
 
@@ -80,9 +82,13 @@ CariMakan menggunakan arsitektur **client-server berbasis cloud** dengan pendeka
 - Akses ke dashboard khusus restoran berdasarkan **role** dari JWT token
 - Kelola menu, antrian, pesanan, laporan
 
-### Admin (Web App)
-- Akses penuh via web admin panel
-- Verifikasi restoran baru, moderasi user, kelola promo & statistik
+### Admin (Web App — `carimakan_admin`)
+- Akses penuh via web admin panel (Next.js, browser)
+- **Autentikasi:** Login divalidasi server-side via `verifyAdminLogin` — hanya `role: admin` dan `status: aktif` yang bisa masuk
+- Verifikasi restoran baru, CRUD user, kelola promo
+- Dashboard analytics: profit 7% platform fee, chart per rentang waktu, detail per-restoran (menu, orders, review tags)
+- **Tidak melewati backend Node.js** — langsung ke Firestore via Firebase Admin SDK
+
 
 ---
 

@@ -18,17 +18,25 @@ Sebelum mulai, pastikan tools berikut sudah terinstall:
 ## Struktur Monorepo (Rekomendasi)
 
 ```
-carimakan/
-├── apps/
-│   ├── mobile/          # Flutter app (Customer & Owner)
-│   ├── web-admin/       # Next.js admin panel
-│   └── backend/         # Node.js + Express API
-├── packages/
-│   └── shared/          # Shared types/utils (opsional)
-├── firebase.json        # Firebase config
-├── .firebaserc          # Firebase project target
-└── README.md
+CariMakan/
+├── carimakan_admin/          # Next.js admin dashboard (repo ini)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx          # Dashboard utama
+│   │   │   └── actions.ts        # Server Actions (Firestore Admin SDK)
+│   │   └── components/       # UI components (UsersTab, RestosTab, dll)
+│   ├── setupdb/
+│   │   └── firestore-setup.js  # Seeder Firestore (node firestore-setup.js)
+│   ├── .env.local            # Kredensial Firebase Admin
+│   └── package.json
+├── carimakan_mobile/         # Flutter app (Customer & Owner) — repo terpisah
+└── CariMakan_docs/           # Dokumentasi proyek
+    └── docs/
+        ├── DATABASE.md
+        ├── ARCHITECTURE.md
+        └── ...
 ```
+
 
 ---
 
@@ -149,33 +157,46 @@ flutter build ios --release
 
 ---
 
-## 4. Setup Web Admin (Next.js)
+## 4. Setup Web Admin (`carimakan_admin`)
 
 ```bash
-cd apps/web-admin
+cd carimakan_admin
 npm install
 ```
 
 ### Environment Variables
-Buat file `.env.local` di `apps/web-admin/`:
+Buat file `.env.local` di root `carimakan_admin/`:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:3000/v1
-NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyXXXXXX
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=carimakan-prod.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=carimakan-prod
+# Firebase Admin SDK (dari Service Account Key)
+FIREBASE_PROJECT_ID=carimakan-prod
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk@carimakan-prod.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
+
+> **Catatan:** Admin dashboard tidak menggunakan Firebase Client SDK — hanya Firebase **Admin SDK** via Server Actions.
+
+### Seed Database
+Setelah `.env.local` dan `serviceAccountKey.json` siap:
+
+```bash
+cd setupdb
+node firestore-setup.js
+```
+
+Ini akan membuat semua koleksi: `users`, `restaurants`, `menus`, `meja`, `badges`, `resto_badges`, `tag_kategori`, `review_tags`, `promo_vouchers`, `orders`, `order_review_tags`.
 
 ### Menjalankan Web Admin
 ```bash
 # Development
 npm run dev
-# Akses di: http://localhost:3001
+# Akses di: http://localhost:3000
 
 # Build production
 npm run build
 npm start
 ```
+
 
 ---
 
@@ -227,24 +248,31 @@ service cloud.firestore {
 
 ---
 
-## 7. Akun Admin Default
+## 7. Akun & Data Default
 
-Setelah backend pertama kali jalan, seed akun admin:
+Setelah setup Firebase selesai, jalankan seeder:
 
 ```bash
-npm run seed:admin
+cd carimakan_admin/setupdb
+node firestore-setup.js
 ```
 
-Atau buat manual di Firestore collection `users`:
+Ini akan membuat akun default di Firestore collection `users`:
+
 ```json
 {
-  "uid": "admin_001",
-  "name": "Admin CariMakan",
+  "id": "admin_001",
+  "nama": "Admin CariMakan",
   "email": "admin@carimakan.app",
+  "password": "password123",
   "role": "admin",
-  "is_active": true
+  "status": "aktif"
 }
 ```
+
+> **Login Admin:** Buka `http://localhost:3000`, gunakan email `admin@carimakan.app` dan password `password123`.
+> **Keamanan Production:** Ganti password dengan nilai yang kuat dan implementasikan bcrypt hashing sebelum deploy ke production.
+
 
 ---
 
