@@ -1,0 +1,612 @@
+{
+  "info": {
+    "name": "CariMakan API",
+    "_postman_id": "carimakan-api-collection",
+    "description": "Koleksi lengkap endpoint CariMakan REST API. Base URL: http://localhost:3001/v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3001/v1", "type": "string" },
+    { "key": "token", "value": "", "type": "string" },
+    { "key": "resto_id", "value": "", "type": "string" },
+    { "key": "menu_id", "value": "", "type": "string" },
+    { "key": "order_id", "value": "", "type": "string" },
+    { "key": "uid", "value": "", "type": "string" },
+    { "key": "tag_id", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/register", "host": ["{{base_url}}"], "path": ["auth", "register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Budi Santoso\",\n  \"email\": \"budi@email.com\",\n  \"phone\": \"081234567890\",\n  \"password\": \"password123\",\n  \"role\": \"customer\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.token) { pm.collectionVariables.set('token', json.token); }",
+                  "if (json.uid) { pm.collectionVariables.set('uid', json.uid); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/login", "host": ["{{base_url}}"], "path": ["auth", "login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"budi@email.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🍽️ Restoran",
+      "item": [
+        {
+          "name": "Get All Restaurants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/restaurants?status=aktif&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants"],
+              "query": [
+                { "key": "status", "value": "aktif" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Nearby Restaurants",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/restaurants/nearby?lat=-6.2&lng=106.8&radius=2000",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "nearby"],
+              "query": [
+                { "key": "lat", "value": "-6.2" },
+                { "key": "lng", "value": "106.8" },
+                { "key": "radius", "value": "2000" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Restaurant Detail",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Restaurant (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/restaurants", "host": ["{{base_url}}"], "path": ["restaurants"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Warung Pak Budi\",\n  \"lat\": -6.2,\n  \"lng\": 106.8,\n  \"jam_buka\": \"08:00-22:00\",\n  \"url_whatsapp\": \"https://wa.me/6281234567890\",\n  \"foto_uri\": \"https://example.com/foto.jpg\",\n  \"badges\": []\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Restaurant (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Warung Pak Budi Updated\",\n  \"jam_buka\": \"09:00-21:00\",\n  \"is_queue_open\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🍛 Menu",
+      "item": [
+        {
+          "name": "Get Menus by Resto",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}/menus",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}", "menus"]
+            }
+          }
+        },
+        {
+          "name": "Create Menu (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}/menus",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}", "menus"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nasi Goreng Spesial\",\n  \"price\": 25000,\n  \"description\": \"Nasi goreng dengan topping spesial\",\n  \"is_available\": true,\n  \"photo_url\": \"https://example.com/menu.jpg\",\n  \"category\": \"makanan\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Menu (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}/menus/{{menu_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}", "menus", "{{menu_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nasi Goreng Super\",\n  \"price\": 28000,\n  \"is_available\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Menu (Owner)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/restaurants/{{resto_id}}/menus/{{menu_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["restaurants", "{{resto_id}}", "menus", "{{menu_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎫 Antrian",
+      "item": [
+        {
+          "name": "Get Queue Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/queues/{{resto_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["queues", "{{resto_id}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Take Queue Number (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/queues/{{resto_id}}/take",
+              "host": ["{{base_url}}"],
+              "path": ["queues", "{{resto_id}}", "take"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"dine_in\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Call Next Queue (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/queues/{{resto_id}}/call",
+              "host": ["{{base_url}}"],
+              "path": ["queues", "{{resto_id}}", "call"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Queue Open/Close (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/queues/{{resto_id}}/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["queues", "{{resto_id}}", "toggle"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Pesanan",
+      "item": [
+        {
+          "name": "Create Order (Customer)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.order_id) { pm.collectionVariables.set('order_id', json.order_id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/orders", "host": ["{{base_url}}"], "path": ["orders"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resto_id\": \"{{resto_id}}\",\n  \"queue_id\": null,\n  \"type\": \"take_away\",\n  \"items\": [\n    { \"menu_id\": \"{{menu_id}}\", \"qty\": 2, \"catatan\": \"Tidak pedas\" }\n  ],\n  \"pickup_time\": null,\n  \"promo_code\": null\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Order History (Customer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/orders/history", "host": ["{{base_url}}"], "path": ["orders", "history"] }
+          }
+        },
+        {
+          "name": "Get Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{order_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Order Status (Owner)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/orders/{{order_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["orders", "{{order_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"processing\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Pembayaran",
+      "item": [
+        {
+          "name": "Get Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/payments/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "{{order_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Payment Webhook (Midtrans)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/payments/webhook", "host": ["{{base_url}}"], "path": ["payments", "webhook"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"transaction_status\": \"settlement\",\n  \"payment_type\": \"qris\",\n  \"fraud_status\": \"accept\",\n  \"gross_amount\": \"62500.00\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "⭐ Review",
+      "item": [
+        {
+          "name": "Submit Review (Customer)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/reviews", "host": ["{{base_url}}"], "path": ["reviews"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"{{order_id}}\",\n  \"rating_pelayanan\": 5,\n  \"rating_makanan\": 4,\n  \"rating_fasilitas\": 5,\n  \"comment\": \"Makanannya enak banget!\",\n  \"tag_ids\": []\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Reviews by Resto",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/reviews/{{resto_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["reviews", "{{resto_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏷️ Review Tags",
+      "item": [
+        {
+          "name": "Get All Tags",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/review-tags",
+              "host": ["{{base_url}}"],
+              "path": ["review-tags"]
+            }
+          }
+        },
+        {
+          "name": "Get Tags by Category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/review-tags?kategori_id=kat_001",
+              "host": ["{{base_url}}"],
+              "path": ["review-tags"],
+              "query": [{ "key": "kategori_id", "value": "kat_001" }]
+            }
+          }
+        },
+        {
+          "name": "Get Tag Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/review-tags/categories",
+              "host": ["{{base_url}}"],
+              "path": ["review-tags", "categories"]
+            }
+          }
+        },
+        {
+          "name": "Create Tag Category (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/review-tags/categories", "host": ["{{base_url}}"], "path": ["review-tags", "categories"] },
+            "body": { "mode": "raw", "raw": "{\n  \"nama\": \"suasana\",\n  \"icon\": \"icon_ambience\"\n}" }
+          }
+        },
+        {
+          "name": "Create Tag (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/review-tags", "host": ["{{base_url}}"], "path": ["review-tags"] },
+            "body": { "mode": "raw", "raw": "{\n  \"kategori_id\": \"kat_001\",\n  \"label\": \"Antrian cepat\",\n  \"icon\": \"icon_fast\"\n}" }
+          }
+        },
+        {
+          "name": "Update Tag (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/review-tags/{{tag_id}}", "host": ["{{base_url}}"], "path": ["review-tags", "{{tag_id}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"label\": \"Label Baru\",\n  \"icon\": \"icon_new\"\n}" }
+          }
+        },
+        {
+          "name": "Delete Tag (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/review-tags/{{tag_id}}", "host": ["{{base_url}}"], "path": ["review-tags", "{{tag_id}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🎁 Rewards",
+      "item": [
+        {
+          "name": "Get My Points & History",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/rewards/me", "host": ["{{base_url}}"], "path": ["rewards", "me"] }
+          }
+        },
+        {
+          "name": "Redeem Points",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/rewards/redeem", "host": ["{{base_url}}"], "path": ["rewards", "redeem"] },
+            "body": { "mode": "raw", "raw": "{\n  \"poin\": 100\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Admin",
+      "item": [
+        {
+          "name": "Get Pending Restaurants",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/admin/restaurants/pending", "host": ["{{base_url}}"], "path": ["admin", "restaurants", "pending"] }
+          }
+        },
+        {
+          "name": "Verify Restaurant",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/restaurants/{{resto_id}}/verify",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "restaurants", "{{resto_id}}", "verify"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"approve\"\n}" }
+          }
+        },
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/admin/users", "host": ["{{base_url}}"], "path": ["admin", "users"] }
+          }
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/admin/users/{{uid}}/suspend",
+              "host": ["{{base_url}}"],
+              "path": ["admin", "users", "{{uid}}", "suspend"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"suspend\": true\n}" }
+          }
+        },
+        {
+          "name": "Get Platform Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/admin/stats", "host": ["{{base_url}}"], "path": ["admin", "stats"] }
+          }
+        },
+        {
+          "name": "Create Promo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/admin/promos", "host": ["{{base_url}}"], "path": ["admin", "promos"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kode\": \"PROMO20\",\n  \"nama\": \"Diskon 20%\",\n  \"deskripsi\": \"Promo spesial\",\n  \"nilai_diskon\": 20,\n  \"is_percent\": true,\n  \"mulai\": \"2026-05-20T00:00:00Z\",\n  \"berakhir\": \"2026-06-01T23:59:59Z\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📷 Table QR",
+      "item": [
+        {
+          "name": "Generate Table QR (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": { "raw": "{{base_url}}/table-qr/generate", "host": ["{{base_url}}"], "path": ["table-qr", "generate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resto_id\": \"{{resto_id}}\",\n  \"table_number\": \"A1\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "❤️ Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:3000/health", "host": ["http://localhost:3000"], "path": ["health"] }
+          }
+        }
+      ]
+    }
+  ]
+}
