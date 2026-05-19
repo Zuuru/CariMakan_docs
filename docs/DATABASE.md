@@ -6,7 +6,7 @@
 **Alternative/Relational:** PostgreSQL (opsi untuk query relasional kompleks)  
 **Media Storage:** Firebase Storage (foto menu, foto restoran, QR Code)
 
-> Skema koleksi di bawah ini dibuat berdasarkan **ERD revisi** per 08 Mei 2026.
+> Skema koleksi di bawah ini dibuat berdasarkan **ERD revisi** per 19 Mei 2026.
 
 ---
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Ringkasan Entitas (13 Koleksi)
+## Ringkasan Entitas (14 Koleksi)
 
 | Koleksi | Keterangan |
 |---|---|
@@ -32,10 +32,13 @@
 | `payments` | Transaksi pembayaran via Midtrans |
 | `badges` | Master data badge fasilitas |
 | `resto_badges` | Junction: restoran ↔ badge |
-| `review_tags` | Master tag ulasan (label review) |
+| `tag_kategori` | Master kategori tag ulasan |
+| `review_tags` | Tag ulasan per kategori |
 | `order_review_tags` | Junction: order ↔ tag ulasan |
 | `promo_vouchers` | Promo & voucher diskon |
 | `reward_poin` | Histori poin reward customer |
+
+> Perubahan dari ERD sebelumnya: koleksi `review_tags` kini memiliki induk `tag_kategori` — kategori ulasan dipisahkan ke koleksinya sendiri untuk fleksibilitas penambahan kategori baru.
 
 ---
 
@@ -191,20 +194,36 @@ Junction table antara restoran dan badge yang dimilikinya.
 
 ---
 
-### 10. `review_tags`
+### 10. `tag_kategori`
 
-Master tag label untuk ulasan (sistem kategori review).
+Master kategori untuk mengelompokkan tag ulasan. *(Koleksi baru — hasil pemisahan dari `review_tags` sebelumnya)*
 
 | Field | Tipe | Keterangan |
 |---|---|---|
 | `id` | string | PK |
-| `label` | string | Label tag (misal: "WiFi cepat", "Makanan enak") |
-| `icon` | string | Icon tag |
-| `kategori` | enum | `pelayanan` / `makanan` / `fasilitas` |
+| `nama` | string | Nama kategori (misal: "pelayanan", "makanan", "fasilitas", "suasana", dll.) |
+| `icon` | string | Icon kategori |
+
+> Pemisahan ini memungkinkan penambahan kategori ulasan baru (misal: "suasana", "kebersihan") tanpa mengubah struktur `review_tags`.
 
 ---
 
-### 11. `order_review_tags`
+### 11. `review_tags`
+
+Tag label spesifik untuk ulasan, dikelompokkan berdasarkan `tag_kategori`.
+
+| Field | Tipe | Keterangan |
+|---|---|---|
+| `id` | string | PK |
+| `kategori_id` | string | FK → `tag_kategori.id` |
+| `label` | string | Label tag (misal: "WiFi cepat", "Makanan enak") |
+| `icon` | string | Icon tag |
+
+> **Perubahan dari ERD sebelumnya:** field `kategori` yang tadinya `enum` langsung di `review_tags` kini dipisah menjadi FK ke koleksi `tag_kategori`. Ini membuat kategori lebih dinamis dan bisa dikelola Admin tanpa deploy ulang.
+
+---
+
+### 12. `order_review_tags`
 
 Junction table antara order dan tag ulasan yang dipilih customer.
 
@@ -215,7 +234,7 @@ Junction table antara order dan tag ulasan yang dipilih customer.
 
 ---
 
-### 12. `promo_vouchers`
+### 13. `promo_vouchers`
 
 | Field | Tipe | Keterangan |
 |---|---|---|
@@ -243,7 +262,7 @@ Junction table antara order dan tag ulasan yang dipilih customer.
 
 ---
 
-### 13. `reward_poin`
+### 14. `reward_poin`
 
 Histori transaksi poin reward customer.
 
@@ -263,8 +282,8 @@ Histori transaksi poin reward customer.
 
 ```
 users ──(owner_id)──────────► restaurants ──(resto_id)──► menus
-  │                                │                        
-  │                                ├──(resto_id)──► meja   
+  │                                │
+  │                                ├──(resto_id)──► meja
   │                                └──(resto_id)──► resto_badges ◄── badges
   │
   └──(user_id)──► orders
@@ -273,7 +292,7 @@ users ──(owner_id)──────────► restaurants ──(resto
                     ├──(promo_id)─────────► promo_vouchers
                     ├──► order_items ──(menu_id)──► menus
                     ├──► payments
-                    ├──► order_review_tags ◄── review_tags
+                    ├──► order_review_tags ◄── review_tags ◄──(kategori_id)── tag_kategori
                     └──► reward_poin
 ```
 
@@ -283,6 +302,7 @@ users ──(owner_id)──────────► restaurants ──(resto
 
 | Keputusan | Penjelasan |
 |---|---|
+| **`tag_kategori` dipisah dari `review_tags`** | Kategori ulasan kini koleksi mandiri — Admin bisa tambah/ubah kategori (misal: "suasana", "kebersihan") tanpa ubah skema `review_tags` |
 | **Rating disimpan di `orders`** | Tidak ada koleksi `reviews` terpisah — rating pelayanan/makanan/fasilitas dan komentar langsung di dokumen order untuk menyederhanakan query |
 | **`avg_rating` & `total_review` di Resto** | Denormalized cache agar tidak perlu agregasi setiap tampilkan daftar restoran |
 | **`harga_saat_order` di `order_items`** | Snapshot harga saat transaksi — perubahan harga menu di masa depan tidak merusak histori |

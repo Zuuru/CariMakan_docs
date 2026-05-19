@@ -241,19 +241,109 @@ Cek status pembayaran pesanan tertentu.
 ## Review (`/reviews`)
 
 ### POST `/reviews`
-Customer berikan rating dan ulasan setelah pesanan selesai.
+Customer berikan rating dan ulasan setelah pesanan selesai. Bisa menyertakan tag ulasan dari koleksi `review_tags`.
 
 **Request Body:**
 ```json
 {
   "order_id": "order_xyz",
-  "rating": 5,
-  "comment": "Makanannya enak banget!"
+  "rating_pelayanan": 5,
+  "rating_makanan": 4,
+  "rating_fasilitas": 5,
+  "comment": "Makanannya enak banget!",
+  "tag_ids": ["tag_001", "tag_005", "tag_009"]
 }
 ```
 
+> `tag_ids` bersifat opsional. Ambil daftar tag yang tersedia via `GET /review-tags`.
+
 ### GET `/reviews/:resto_id`
 Ambil semua review publik restoran tertentu.
+
+---
+
+## Tag Ulasan (`/review-tags`)
+
+Endpoint untuk mengambil dan mengelola master data tag ulasan, yang kini diorganisasi dalam dua level: **kategori** dan **tag**.
+
+### GET `/review-tags/categories`
+Ambil semua kategori tag ulasan (`tag_kategori`).
+
+**Response `200`:**
+```json
+[
+  {
+    "kategori_id": "kat_001",
+    "nama": "pelayanan",
+    "icon": "icon_service"
+  },
+  {
+    "kategori_id": "kat_002",
+    "nama": "makanan",
+    "icon": "icon_food"
+  },
+  {
+    "kategori_id": "kat_003",
+    "nama": "fasilitas",
+    "icon": "icon_facility"
+  }
+]
+```
+
+### GET `/review-tags`
+Ambil semua tag ulasan (`review_tags`), opsional filter per kategori.
+
+**Query Params:**
+| Param | Tipe | Keterangan |
+|---|---|---|
+| `kategori_id` | string | Filter tag berdasarkan kategori (opsional) |
+
+**Response `200`:**
+```json
+[
+  {
+    "tag_id": "tag_001",
+    "kategori_id": "kat_002",
+    "label": "Makanan enak",
+    "icon": "icon_yummy"
+  },
+  {
+    "tag_id": "tag_002",
+    "kategori_id": "kat_001",
+    "label": "Pelayanan ramah",
+    "icon": "icon_smile"
+  }
+]
+```
+
+### POST `/review-tags/categories` *(Admin only)*
+Tambah kategori tag baru.
+
+**Request Body:**
+```json
+{
+  "nama": "suasana",
+  "icon": "icon_ambience"
+}
+```
+
+### POST `/review-tags` *(Admin only)*
+Tambah tag ulasan baru ke dalam kategori tertentu.
+
+**Request Body:**
+```json
+{
+  "kategori_id": "kat_001",
+  "label": "Antrian cepat",
+  "icon": "icon_fast"
+}
+```
+
+### PUT `/review-tags/:tag_id` *(Admin only)*
+Edit label atau icon tag ulasan.
+
+### DELETE `/review-tags/:tag_id` *(Admin only)*
+Hapus tag ulasan.
 
 ---
 
